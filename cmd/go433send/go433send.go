@@ -8,7 +8,6 @@ import (
 	"github.com/davecheney/gpio"
 	"github.com/davecheney/gpio/rpi"
 	"github.com/jpillora/opts"
-	_ "github.com/kidoman/embd/host/rpi"
 )
 
 type config struct {
