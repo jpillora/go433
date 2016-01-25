@@ -5,8 +5,7 @@ import (
 	"time"
 
 	"github.com/jpillora/opts"
-	"github.com/kidoman/embd"
-	_ "github.com/kidoman/embd/host/rpi"
+	"github.com/stianeikeland/go-rpio"
 )
 
 type config struct {
@@ -20,28 +19,23 @@ func main() {
 
 	c := config{
 		Pin:         20,
-		Repeat:      3,
-		OnDuration:  250 * time.Millisecond,
+		Repeat:      1,
+		OnDuration:  750 * time.Millisecond,
 		OffDuration: 250 * time.Millisecond,
 	}
 	opts.Parse(&c)
 
-	embd.InitGPIO()
-	defer embd.CloseGPIO()
-
-	pin, err := embd.NewDigitalPin(c.Pin)
-	if err != nil {
+	if err := rpio.Open(); err != nil {
 		log.Fatal(err)
 	}
-	defer pin.Close()
-
 	log.Printf("using pin: %d", c.Pin)
-	pin.SetDirection(embd.Out)
+	pin := rpio.Pin(c.Pin)
+	pin.Output()
 
 	for r := 0; r < c.Repeat; r++ {
-		pin.Write(embd.High)
+		pin.High()
 		time.Sleep(c.OnDuration)
-		pin.Write(embd.Low)
+		pin.Low()
 		time.Sleep(c.OffDuration)
 	}
 

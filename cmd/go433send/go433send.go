@@ -5,9 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/davecheney/gpio"
-	"github.com/davecheney/gpio/rpi"
 	"github.com/jpillora/opts"
+	"github.com/stianeikeland/go-rpio"
 )
 
 type config struct {
@@ -33,18 +32,21 @@ func main() {
 		log.Fatal(err)
 	}
 
-	//GPIO SETUP
-	pin, err := rpi.OpenPin(c.Pin, gpio.ModeOutput)
-	if err != nil {
+	//GPIO SETUP===========
+	if err := rpio.Open(); err != nil {
 		log.Fatal(err)
 	}
+	pin := rpio.Pin(c.Pin)
+	pin.Output()
+	//=============
+	log.Printf("sending on pin %d (pulse %s)", c.Pin, time.Duration(c.PulseLength)*time.Microsecond)
 
 	transmit := func(hi, lo int) {
-		// fmt.Printf("H%d", hi)
-		pin.Set()
+		//GPIO HIGH===========
+		pin.High()
 		time.Sleep(time.Duration(c.PulseLength*hi) * time.Microsecond)
-		// fmt.Printf("L%d\n", lo)
-		pin.Clear()
+		//GPIO LOW===========
+		pin.Low()
 		time.Sleep(time.Duration(c.PulseLength*lo) * time.Microsecond)
 	}
 
@@ -79,7 +81,6 @@ func main() {
 	}
 
 	t0 := time.Now()
-	log.Printf("sending on pin %d (pulse %s)", c.Pin, time.Duration(c.PulseLength)*time.Microsecond)
 	send(uint32(code), 24)
 	log.Printf("sent: %d (in %s)", code, time.Now().Sub(t0))
 }

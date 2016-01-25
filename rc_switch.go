@@ -33,9 +33,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kidoman/embd"
-
-	// _ "github.com/kidoman/embd/host/rpi"
+	"github.com/davecheney/gpio"
+	"github.com/stianeikeland/go-rpio"
 )
 
 // separationLimit: minimum microseconds between received codes, closer codes are ignored.
@@ -53,23 +52,24 @@ type RCSwitch struct {
 	nReceivedDelay     int
 	nReceivedProtocol  int
 	nReceiveTolerance  int
-	nReceiverInterrupt int
-	nTransmitterPin    int
+	nReceiverPin       gpio.Pin
+	nTransmitterPin    *rpio.Pin
 	timings            [RCSWITCH_MAX_CHANGES]int
 }
 
 func NewRCSwitch() (*RCSwitch, error) {
-	if err := embd.InitGPIO(); err != nil {
+	if err := rpio.Open(); err != nil {
 		return nil, fmt.Errorf("init gpio: %s", err)
 	}
+
 	// defer embd.CloseGPIO()
 
 	rc := &RCSwitch{}
-	rc.nTransmitterPin = -1
+	rc.nTransmitterPin = nil
+	rc.nReceiverPin = nil
 	rc.setPulseLength(350)
 	rc.setRepeatTransmit(10)
 	rc.setProtocol(1)
-	rc.nReceiverInterrupt = -1
 	rc.setReceiveTolerance(60)
 	rc.nReceivedValue = 0
 	return rc, nil
@@ -127,16 +127,17 @@ func (rc *RCSwitch) setReceiveTolerance(nPercent int) {
  *
  * @param nTransmitterPin    Arduino Pin to which the sender is connected to
  */
-func (rc *RCSwitch) enableTransmit(nTransmitterPin int) {
-	rc.nTransmitterPin = nTransmitterPin
-	embd.SetDirection(rc.nTransmitterPin, embd.Out)
+func (rc *RCSwitch) EnableTransmit(nTransmitterPin int) {
+	pin := rpio.Pin(nTransmitterPin)
+	pin.Output()
+	rc.nTransmitterPin = &pin
 }
 
 /**
  * Disable transmissions
  */
 func (rc *RCSwitch) disableTransmit() {
-	rc.nTransmitterPin = -1
+	rc.nTransmitterPin = nil
 }
 
 /**
@@ -460,16 +461,17 @@ func (rc *RCSwitch) transmit(nHighPulses int, nLowPulses int) {
 	disabledReceive := false
 	prevReceiverInterrupt := rc.nReceiverInterrupt
 
-	if rc.nTransmitterPin != -1 {
+	if rc.nTransmitterPin != nil {
 
 		if rc.nReceiverInterrupt != -1 {
 			rc.disableReceive()
 			disabledReceive = true
 		}
 
-		embd.DigitalWrite(rc.nTransmitterPin, embd.High)
+		rc.nTransmitterPin.High()
 		time.Sleep(time.Duration(rc.nPulseLength*nHighPulses) * time.Microsecond)
-		embd.DigitalWrite(rc.nTransmitterPin, embd.Low)
+
+		rc.nTransmitterPin.Low()
 		time.Sleep(time.Duration(rc.nPulseLength*nLowPulses) * time.Microsecond)
 
 		if disabledReceive {
@@ -585,8 +587,8 @@ func (rc *RCSwitch) enableReceive() {
 	if rc.nReceiverInterrupt != -1 {
 		rc.nReceivedValue = 0
 		rc.nReceivedBitlength = 0
-		rc.attachInterrupt(rc.nReceiverInterrupt, handleInterrupt, CHANGE)
 
+		rc.attachInterrupt(rc.nReceiverInterrupt, handleInterrupt, CHANGE)
 	}
 }
 
