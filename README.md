@@ -1,6 +1,6 @@
 # go433
 
-Send and receive 433 MHz using a RaspberryPi and Go
+Send and receive 433 MHz using a Raspberry Pi and Go
 
 ### Features
 
@@ -11,7 +11,7 @@ Send and receive 433 MHz using a RaspberryPi and Go
 
 Send
 
-```
+```go
 //send 1234 on GPIO pin 17
 if err := go443.Send(17, 1234); err != nil {
 	log.Fatal(err)
@@ -20,7 +20,7 @@ if err := go443.Send(17, 1234); err != nil {
 
 Receive
 
-```
+```go
 //receive on GPIO pin 27
 receiving, err := go443.Receive(27, func(code uint32) {
 	//code is 1234!
@@ -32,12 +32,16 @@ if err != nil {
 close(receiving)
 ```
 
-*See [Pinout diagram](ref/RP2_Pinout.png)*
+*See pinout diagram below*
 
 ### Notes
 
 * Tested using RaspberryPi 2, using the transmitter/receiver found in [this article](http://www.princetronics.com/how-to-read-433-mhz-codes-w-raspberry-pi-433-mhz-receiver/)
 * Code ported from https://github.com/sui77/rc-switch
+
+### RPI2 Pinout
+
+![rp2_pinout](https://cloud.githubusercontent.com/assets/633843/22986824/d7df1830-f400-11e6-81cd-78a7ddf7a080.png)
 
 #### MIT License
 
