@@ -4,10 +4,6 @@ import (
 	"errors"
 	"log"
 	"time"
-
-	"github.com/davecheney/gpio"
-	"github.com/davecheney/gpio/rpi"
-	rpio "github.com/stianeikeland/go-rpio"
 )
 
 //Debug controls whether debug prints are emitted
@@ -29,51 +25,26 @@ type SendOpts struct {
 
 //SendWith a 433 code (32bits) out the specified GPIO pin with custom options
 func SendWith(opts SendOpts) error {
-	if err := rpio.Open(); err != nil {
+	p, err := openPinOut(opts.Pin)
+	if err != nil {
 		return err
 	}
-	p := rpio.Pin(opts.Pin)
-	p.Output()
-	on := func(on bool) {
-		if on {
-			p.High()
-		} else {
-			p.Low()
-		}
-	}
-
-	//TODO: why doesn't davecheney's package work!?!?!
-	// p, err := rpi.OpenPin(pin, gpio.ModeOutput)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// on := func(on bool) {
-	// 	for i := 0; i < 100; i++ {
-	// 		if on {
-	// 			p.Set()
-	// 		} else {
-	// 			p.Clear()
-	// 		}
-	// 	}
-	// }
-
+	//always 1 for now
+	const protocol = 1
 	//encode hi/los
 	transmit := func(hi, lo int) {
 		//on for hi-many pulses
-		on(true)
+		p.Write(true)
 		time.Sleep(time.Duration(opts.PulseLength*hi) * time.Microsecond)
 		//off for lo-many pulses
-		on(false)
+		p.Write(false)
 		time.Sleep(time.Duration(opts.PulseLength*lo) * time.Microsecond)
 	}
-
-	//always 1 for now
-	const protocol = 1
-
 	//send 1 bit
 	sendBit := func(on bool) {
 		switch protocol {
 		case 1:
+			//protocol 1
 			if on {
 				transmit(3, 1)
 			} else {
@@ -97,9 +68,9 @@ func SendWith(opts SendOpts) error {
 	if Debug {
 		log.Printf("transmission width: %d", width)
 	}
-	//send all bits
+	//retranmissions
 	for r := 0; r < opts.Retransmissions; r++ {
-		//send bits
+		//send all bits
 		mask := uint32(1) << (width - 1)
 		for shift := uint32(0); shift < width; shift++ {
 			set := (opts.Code & mask) > 0
@@ -117,19 +88,23 @@ func SendWith(opts SendOpts) error {
 
 //Receive codes from the given pin, close the channel
 //to stop receiving.
-func Receive(pin int, handler func(code uint32)) (chan bool, error) {
-	p, err := rpi.OpenPin(pin, gpio.ModeInput)
+func Receive(pin int, handler func(code uint32)) (cancel func(), err error) {
+	p, err := openPinIn(pin)
+	if err != nil {
+		return nil, err
+	}
+	ch, err := p.OnChange()
 	if err != nil {
 		return nil, err
 	}
 	//receive state
 	const MaxChanges = 67
 	const ReceiveTolerance = 60
+	const separationLimit = 5 * time.Millisecond
+	const separationError = 200 * time.Microsecond
 	changeCount := 0
 	repeatCount := 0
 	timings := [MaxChanges]time.Duration{}
-	separationLimit := 5 * time.Millisecond
-	separationError := 200 * time.Microsecond
 	//a is within b, given error bound
 	within := func(a, b, e time.Duration) bool {
 		return a > b-e && a < b+e
@@ -144,10 +119,13 @@ func Receive(pin int, handler func(code uint32)) (chan bool, error) {
 			log.Printf("decode - changes: %d, delay: %s, tolerance: %s", changeCount, delay, delayTolerance)
 		}
 		for i := 1; i < changeCount; i = i + 2 {
+			this := timings[i]
+			next := timings[i+1]
 			//increasing delay
-			inc := within(timings[i], delay, delayTolerance) && within(timings[i+1], delay3, delayTolerance)
+			inc := within(this, delay, delayTolerance) && within(next, delay3, delayTolerance)
 			//decreasing delay
-			dec := within(timings[i], delay3, delayTolerance) && within(timings[i+1], delay, delayTolerance)
+			dec := within(this, delay3, delayTolerance) && within(next, delay, delayTolerance)
+			log.Printf(">>>> decode - inc: %v, dec: %v, code: %d", inc, dec, code)
 			if inc {
 				code = code << 1
 			} else if dec {
@@ -169,17 +147,18 @@ func Receive(pin int, handler func(code uint32)) (chan bool, error) {
 	}
 	//pin interupt handler
 	last := time.Now()
-	handle := func() {
+	handle := func(on bool) {
 		now := time.Now()
 		delta := now.Sub(last)
 		last = now
 		if delta > separationLimit {
-			// micros := delta.Nanoseconds() / int64(1000)
-			// if micros > 1000 {
-			// 	fmt.Printf("[%05d] %d\n", i, micros)
-			// 	i++
-			// }
-			if delta > timings[0]-separationError && delta < timings[0]+separationError {
+			lower := timings[0] - separationError
+			upper := timings[0] + separationError
+			w := delta > lower && delta < upper
+			if Debug {
+				log.Printf("handle: %s < %s < %s = %v", lower, delta, upper, w)
+			}
+			if w {
 				repeatCount++
 				changeCount--
 				if repeatCount == 2 {
@@ -196,15 +175,13 @@ func Receive(pin int, handler func(code uint32)) (chan bool, error) {
 		timings[changeCount] = delta
 		changeCount++
 	}
-	if err := p.BeginWatch(gpio.EdgeBoth, handle); err != nil {
-		p.Close()
-		return nil, err
-	}
-	ch := make(chan bool)
+
 	go func() {
-		<-ch
-		p.Close()
-		p.EndWatch()
+		for on := range ch {
+			handle(on)
+		}
 	}()
-	return ch, nil
+	return func() {
+		close(ch)
+	}, nil
 }

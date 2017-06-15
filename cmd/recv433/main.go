@@ -20,7 +20,7 @@ func main() {
 
 	go433.Debug = c.Debug
 
-	receiving, err := go433.Receive(c.Pin, func(code uint32) {
+	cancel, err := go433.Receive(c.Pin, func(code uint32) {
 		log.Printf("pin: %d, received: %d", c.Pin, code)
 	})
 	if err != nil {
@@ -32,5 +32,5 @@ func main() {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
 	<-sig
-	close(receiving)
+	cancel()
 }
