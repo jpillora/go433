@@ -4,10 +4,12 @@ package go433
 
 import "errors"
 
-func openPinIn(n int) (pinIn, error) {
+//OpenPinIn initialises a GPIO input pin
+func OpenPinIn(n int) (PinIn, error) {
 	return nil, errors.New("not available on this os/platform")
 }
 
-func openPinOut(n int) (pinOut, error) {
+//OpenPinOut initialises a GPIO output pin
+func OpenPinOut(n int) (PinOut, error) {
 	return nil, errors.New("not available on this os/platform")
 }

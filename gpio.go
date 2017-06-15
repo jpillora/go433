@@ -1,9 +1,11 @@
 package go433
 
-type pinOut interface {
+//PinOut provides GPIO out
+type PinOut interface {
 	Write(on bool) error
 }
 
-type pinIn interface {
+//PinIn provides GPIO in
+type PinIn interface {
 	OnChange() (chan bool, error)
 }

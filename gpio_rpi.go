@@ -25,7 +25,7 @@ type rpiPinIn struct {
 	periph gpio.PinIn
 }
 
-func openPinIn(n int) (pinIn, error) {
+func OpenPinIn(n int) (PinIn, error) {
 	if hostInit != nil {
 		return nil, hostInit
 	}
@@ -59,7 +59,7 @@ type rpiPinOut struct {
 	periph gpio.PinOut
 }
 
-func openPinOut(n int) (pinOut, error) {
+func OpenPinOut(n int) (PinOut, error) {
 	if hostInit != nil {
 		return nil, hostInit
 	}

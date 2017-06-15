@@ -25,7 +25,7 @@ type SendOpts struct {
 
 //SendWith a 433 code (32bits) out the specified GPIO pin with custom options
 func SendWith(opts SendOpts) error {
-	p, err := openPinOut(opts.Pin)
+	p, err := OpenPinOut(opts.Pin)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func SendWith(opts SendOpts) error {
 //Receive codes from the given pin, close the channel
 //to stop receiving.
 func Receive(pin int, handler func(code uint32)) (cancel func(), err error) {
-	p, err := openPinIn(pin)
+	p, err := OpenPinIn(pin)
 	if err != nil {
 		return nil, err
 	}
