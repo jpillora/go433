@@ -13,7 +13,7 @@ Send
 
 ```go
 //send 1234 on GPIO pin 17
-if err := go443.Send(17, 1234); err != nil {
+if err := go433.Send(17, 1234); err != nil {
 	log.Fatal(err)
 }
 ```
@@ -22,7 +22,7 @@ Receive
 
 ```go
 //receive on GPIO pin 27
-receiving, err := go443.Receive(27, func(code uint32) {
+receiving, err := go433.Receive(27, func(code uint32) {
 	//code is 1234!
 })
 if err != nil {
